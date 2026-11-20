@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#101820">
+<title>Mi primer volante</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101820;font-family:system-ui,-apple-system,Segoe UI,sans-serif;touch-action:none}
+#camera{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#17232d}
+.shade{position:fixed;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35),transparent 24%,transparent 68%,rgba(0,0,0,.35));pointer-events:none}
+.top{position:fixed;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+button{border:0;border-radius:999px;padding:11px 16px;background:rgba(16,24,32,.78);color:white;font-size:14px;font-weight:650;backdrop-filter:blur(8px)}
+#steeringArea{position:fixed;bottom:max(18px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(56vw,270px);aspect-ratio:1;display:grid;place-items:center;touch-action:none}
+#steering{width:100%;height:100%;filter:drop-shadow(0 8px 10px rgba(0,0,0,.45));transform:rotate(0deg);transform-origin:50% 50%;will-change:transform}
+#startPanel{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(5,12,18,.78);color:white;text-align:center}
+.panel{max-width:360px;background:#17232d;padding:26px 22px;border-radius:24px;box-shadow:0 12px 40px #0008}
+.panel h1{margin:0 0 10px;font-size:26px}.panel p{line-height:1.45;color:#dce6ec}
+#start{background:#ffb52e;color:#302000;font-size:17px;padding:14px 24px;margin-top:8px}
+#message{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);color:white;background:#101820b8;padding:7px 12px;border-radius:20px;font-size:12px;white-space:nowrap;pointer-events:none}
+.hidden{display:none!important}
+@media(orientation:portrait){#steeringArea{width:min(48vw,230px)}}
+</style>
+</head>
+<body>
+<video id="camera" autoplay playsinline muted></video><div class="shade"></div>
+<div class="top"><button id="switch" type="button">↻ Cambiar cámara</button><button id="fullscreen" type="button">⛶ Pantalla completa</button></div>
+<div id="steeringArea" aria-label="Volante táctil">
+<svg id="steering" viewBox="0 0 300 300" role="img" aria-label="Volante amarillo">
+<defs><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe27a"/><stop offset=".55" stop-color="#ffb52e"/><stop offset="1" stop-color="#e98712"/></linearGradient></defs>
+<circle cx="150" cy="150" r="132" fill="none" stroke="#51300d" stroke-width="25"/>
+<circle cx="150" cy="150" r="132" fill="none" stroke="url(#gold)" stroke-width="18"/>
+<path d="M150 147 L75 83 M150 147 L225 83 M150 147 L150 258" fill="none" stroke="#f6a51f" stroke-width="24" stroke-linecap="round"/>
+<circle cx="150" cy="150" r="43" fill="url(#gold)" stroke="#8d510b" stroke-width="7"/>
+<path d="M150 119l9 19 21 3-15 15 4 21-19-10-19 10 4-21-15-15 21-3z" fill="#fff4bd"/>
+</svg></div>
+<div id="message" class="hidden">Gira el volante con tu dedo</div>
+<div id="startPanel"><div class="panel"><h1>🚗 Mi primer volante</h1><p>Coloca el celular de forma segura. Toca iniciar para ver la cámara y jugar a girar el volante.</p><p><small>Usa esta experiencia con la supervisión de una persona adulta. No la uses mientras conduces un vehículo real.</small></p><button id="start" type="button">Iniciar</button></div></div>
+<script>
+const video=document.getElementById('camera'), wheel=document.getElementById('steering'), area=document.getElementById('steeringArea'), panel=document.getElementById('startPanel'), msg=document.getElementById('message');
+let facing='environment',stream=null,dragging=false,startAngle=0,current=0,pointerStart=0;
+async function openCamera(){
+ try{
+  if(stream)stream.getTracks().forEach(t=>t.stop());
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing}},audio:false});
+  video.srcObject=stream; await video.play(); panel.classList.add('hidden');msg.classList.remove('hidden');
+ }catch(e){alert('No se pudo abrir la cámara. Revisa que Chrome tenga permiso para usarla y abre esta página desde su enlace HTTPS. Detalle: '+e.message);}
+}
+document.getElementById('start').addEventListener('click',openCamera);
+document.getElementById('switch').addEventListener('click',async()=>{facing=facing==='environment'?'user':'environment';if(stream)await openCamera();});
+document.getElementById('fullscreen').addEventListener('click',()=>{if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen();});
+function pointAngle(e){const r=area.getBoundingClientRect();return Math.atan2(e.clientY-(r.top+r.height/2),e.clientX-(r.left+r.width/2))*180/Math.PI;}
+area.addEventListener('pointerdown',e=>{dragging=true;area.setPointerCapture(e.pointerId);pointerStart=pointAngle(e);startAngle=current;});
+area.addEventListener('pointermove',e=>{if(!dragging)return;let d=pointAngle(e)-pointerStart;if(d>180)d-=360;if(d< -180)d+=360;current=Math.max(-115,Math.min(115,startAngle+d));wheel.style.transform='rotate('+current+'deg)';});
+function release(){dragging=false;current=0;wheel.style.transition='transform .28s ease-out';wheel.style.transform='rotate(0deg)';setTimeout(()=>wheel.style.transition='',300);}
+area.addEventListener('pointerup',release);area.addEventListener('pointercancel',release);
+if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){document.getElementById('start').disabled=true;document.querySelector('.panel p').textContent='Este navegador no permite usar la cámara. Abre esta página HTTPS con Chrome actualizado.';}
+</script>
+</body></html>
